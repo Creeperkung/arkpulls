@@ -31,9 +31,15 @@ Yostar gacha-history endpoint (currently mocked)
 ## Run it
 
 ```bash
+# API
 npm install
 npx prisma migrate dev   # creates dev.db + seeds 50 simulated players
 npm run dev              # http://localhost:3000
+
+# Dashboard (separate terminal)
+cd web
+npm install
+PORT=3001 npm run dev    # http://localhost:3001 — proxies /api to the backend
 ```
 
 ## API
@@ -54,7 +60,7 @@ same account.
 - [ ] Real Yostar endpoint integration behind the existing `fetchGachaHistory` interface
 - [ ] Move community aggregation from in-memory to SQL / cached materialized stats (it currently rescans all pulls per request)
 - [ ] Redis cache for community stats + rate limiting on `/api/import`
-- [ ] Next.js frontend: personal dashboard + community luck histogram
+- [x] Next.js frontend: personal dashboard + community luck histogram (`web/`)
 - [ ] Per-banner luck comparisons ("pulls needed for the new limited")
 - [ ] Docker + CI/CD (GitHub Actions), deploy to Fly.io/Railway
 - [ ] Tests (Vitest) for pity extraction and ingestion idempotency
