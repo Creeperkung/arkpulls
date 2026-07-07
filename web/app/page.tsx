@@ -68,7 +68,15 @@ export default function Home() {
         try {
           payload = JSON.parse(jsonText);
         } catch {
-          throw new Error("That doesn't look like valid JSON — copy the full export and try again.");
+          // Several page responses pasted back-to-back: turn `}{` seams into
+          // an array and retry before giving up.
+          try {
+            payload = JSON.parse("[" + jsonText.trim().replace(/}\s*{/g, "},{") + "]");
+          } catch {
+            throw new Error(
+              "That doesn't look like valid JSON — copy each page's full response and try again."
+            );
+          }
         }
         body = JSON.stringify({ account, payload });
       }
@@ -145,8 +153,10 @@ export default function Home() {
               >
                 Yostar Account Center
               </a>
-              , open Game Info → Headhunting History, copy the history JSON, and paste it
-              below. Yostar only keeps 90 days — ArkPulls archives every import permanently.
+              , open Game Info → Headhunting History and copy each page&apos;s JSON response
+              (10 pulls per page — DevTools → Network). Paste one page at a time or several
+              back-to-back; imports merge, and duplicates are skipped automatically. Yostar
+              only keeps 90 days — ArkPulls archives every import permanently.
             </p>
             <input
               value={account}
@@ -157,7 +167,7 @@ export default function Home() {
             <textarea
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
-              placeholder='[{"pool": "Banner name", "ts": 1767225600, "chars": [{"name": "SilverAsh", "rarity": 5}]}]'
+              placeholder='{"code": 0, "data": {"rows": [{"charName": "Ambriel", "star": "4星", "poolName": "...", "at": 1777289675771}], "count": 156}}'
               rows={5}
               className="rounded-md border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs outline-none placeholder:text-[var(--muted)] focus:border-[var(--series-1)]"
             />
