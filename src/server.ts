@@ -2,10 +2,12 @@ import express from "express";
 import { z } from "zod";
 import { db } from "./lib/db.js";
 import { importPulls } from "./services/ingest.js";
+import { ImportFormatError, importJsonPulls } from "./services/jsonImport.js";
 import { getCommunityStats, getUserStats } from "./services/stats.js";
 
 const app = express();
-app.use(express.json());
+// Pull-history exports can run large; default 100kb would reject them.
+app.use(express.json({ limit: "5mb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
@@ -22,6 +24,28 @@ app.post("/api/import", async (req, res, next) => {
     }
     res.json(await importPulls(parsed.data.token));
   } catch (err) {
+    next(err);
+  }
+});
+
+const jsonImportSchema = z.object({
+  account: z.string().min(1),
+  payload: z.unknown(),
+});
+
+app.post("/api/import/json", async (req, res, next) => {
+  try {
+    const parsed = jsonImportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "account and payload are required" });
+      return;
+    }
+    res.json(await importJsonPulls(parsed.data.account, parsed.data.payload));
+  } catch (err) {
+    if (err instanceof ImportFormatError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

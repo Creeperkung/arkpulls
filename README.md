@@ -47,6 +47,7 @@ PORT=3001 npm run dev    # http://localhost:3001 — proxies /api to the backend
 | Endpoint | What it returns |
 |---|---|
 | `POST /api/import` `{ "token": "..." }` | Imports that account's pulls (idempotent — re-import only appends new pulls) |
+| `POST /api/import/json` `{ "account": "...", "payload": ... }` | Paste-based import of a Yostar Account Center Headhunting History export. Multiset dedup + chronological resequencing, so overlapping re-exports merge cleanly |
 | `GET /api/users/:id/stats` | Total pulls, rarity breakdown, per-banner current pity, every 6★ with its pity cost, luck percentile vs community |
 | `GET /api/community/stats` | Users, total pulls, observed 6★ rate, average pulls per 6★, full pity-cost distribution |
 | `GET /api/banners` | Known banners |
@@ -57,7 +58,9 @@ same account.
 
 ## Roadmap
 
-- [ ] Real Yostar endpoint integration behind the existing `fetchGachaHistory` interface
+- [x] Paste-based import from the official Yostar Account Center Headhunting History
+      page (launched Jan 2026, keeps only 90 days — ArkPulls archives it permanently)
+- [ ] Automated Yostar email-code login behind the existing `fetchGachaHistory` interface
 - [ ] Move community aggregation from in-memory to SQL / cached materialized stats (it currently rescans all pulls per request)
 - [ ] Redis cache for community stats + rate limiting on `/api/import`
 - [x] Next.js frontend: personal dashboard + community luck histogram (`web/`)

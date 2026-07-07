@@ -33,7 +33,10 @@ export default function Home() {
   const [community, setCommunity] = useState<CommunityStats | null>(null);
   const [banners, setBanners] = useState<Record<string, string>>({});
   const [user, setUser] = useState<UserStats | null>(null);
+  const [mode, setMode] = useState<"token" | "json">("token");
   const [token, setToken] = useState("");
+  const [account, setAccount] = useState("");
+  const [jsonText, setJsonText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,22 +60,39 @@ export default function Home() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/import", {
+      let body: string;
+      if (mode === "token") {
+        body = JSON.stringify({ token });
+      } else {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(jsonText);
+        } catch {
+          throw new Error("That doesn't look like valid JSON — copy the full export and try again.");
+        }
+        body = JSON.stringify({ account, payload });
+      }
+      const res = await fetch(mode === "token" ? "/api/import" : "/api/import/json", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body,
       });
-      if (!res.ok) throw new Error("import failed");
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.error ?? "Import failed — is the API running?");
+      }
       const { userId } = await res.json();
       const stats = await fetch(`/api/users/${userId}/stats`);
       setUser(await stats.json());
       await loadCommunity();
-    } catch {
-      setError("Import failed — check the token and that the API is running.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed.");
     } finally {
       setBusy(false);
     }
   }
+
+  const canSubmit = mode === "token" ? token.length > 0 : account.length > 0 && jsonText.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
@@ -85,22 +105,75 @@ export default function Home() {
 
       <form
         onSubmit={handleImport}
-        className="mb-8 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4"
+        className="mb-8 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4"
       >
-        <input
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder="Yostar account token (any string works in demo mode)"
-          className="min-w-64 flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--muted)] focus:border-[var(--series-1)]"
-        />
-        <button
-          type="submit"
-          disabled={busy || token.length === 0}
-          className="rounded-md bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {busy ? "Importing…" : "Import my pulls"}
-        </button>
-        {error && <p className="w-full text-sm text-[#d03b3b]">{error}</p>}
+        <div className="mb-3 flex gap-1 rounded-md border border-[var(--border)] p-0.5 text-sm w-fit">
+          {(["token", "json"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`rounded px-3 py-1 ${
+                mode === m
+                  ? "bg-[var(--series-1)] font-medium text-white"
+                  : "text-[var(--ink-2)]"
+              }`}
+            >
+              {m === "token" ? "Demo token" : "Paste JSON export"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "token" ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Yostar account token (any string works in demo mode)"
+              className="min-w-64 flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--muted)] focus:border-[var(--series-1)]"
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-[var(--ink-2)]">
+              In the{" "}
+              <a
+                href="https://account.yo-star.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                Yostar Account Center
+              </a>
+              , open Game Info → Headhunting History, copy the history JSON, and paste it
+              below. Yostar only keeps 90 days — ArkPulls archives every import permanently.
+            </p>
+            <input
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
+              placeholder="Account name (pick one and reuse it every import)"
+              className="rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--muted)] focus:border-[var(--series-1)]"
+            />
+            <textarea
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
+              placeholder='[{"pool": "Banner name", "ts": 1767225600, "chars": [{"name": "SilverAsh", "rarity": 5}]}]'
+              rows={5}
+              className="rounded-md border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs outline-none placeholder:text-[var(--muted)] focus:border-[var(--series-1)]"
+            />
+          </div>
+        )}
+
+        <div className="mt-3">
+          <button
+            type="submit"
+            disabled={busy || !canSubmit}
+            className="rounded-md bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {busy ? "Importing…" : "Import my pulls"}
+          </button>
+        </div>
+        {error && <p className="mt-2 text-sm text-[#d03b3b]">{error}</p>}
       </form>
 
       {user && (
