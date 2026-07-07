@@ -1,0 +1,49 @@
+// Dev runs on SQLite for zero-setup. For deployment, change provider to
+// "postgresql" and point DATABASE_URL at your Postgres instance.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  nickname  String
+  // Hash of the Yostar token, so re-imports map to the same account
+  // without ever storing the raw credential.
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+  pulls     Pull[]
+}
+
+model Banner {
+  id        String   @id
+  name      String
+  // STANDARD | LIMITED | KERNEL
+  type      String
+  rateUp6   String // comma-separated rate-up 6-star operator names
+  startAt   DateTime
+  endAt     DateTime
+  pulls     Pull[]
+}
+
+model Pull {
+  id           String   @id @default(cuid())
+  userId       String
+  bannerId     String
+  // Position of this pull in the user's history on this banner (0-based).
+  // Makes imports idempotent and lets us reconstruct pity sequences.
+  seq          Int
+  rarity       Int // 3..6
+  operatorName String
+  pulledAt     DateTime
+
+  user   User   @relation(fields: [userId], references: [id])
+  banner Banner @relation(fields: [bannerId], references: [id])
+
+  @@unique([userId, bannerId, seq])
+  @@index([bannerId, rarity])
+}
